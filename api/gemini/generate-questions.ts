@@ -36,6 +36,11 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    // Cek keberadaan API Key secara eksplisit
+    if (!process.env.GEMINI_API_KEY) {
+       throw new Error("GEMINI_API_KEY tidak terbaca oleh sistem");
+    }
+
     const { topic, subject, difficulty, count = 5, customPrompt = '' } = req.body;
 
     if (!topic) {
@@ -43,12 +48,6 @@ export default async function handler(req: any, res: any) {
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({
-        error: 'Variabel lingkungan GEMINI_API_KEY tidak dikonfigurasi di pengaturan Vercel.',
-      });
-    }
-
     const ai = getGenAI(apiKey);
 
     const systemInstruction = `Anda adalah seorang ahli pembuat soal ujian Computer Based Test (CBT) profesional. 
@@ -113,9 +112,7 @@ Setiap soal harus berisi opsi A, B, C, D, dan E, satu kunci jawaban yang benar, 
     const questions = JSON.parse(textOutput);
     return res.status(200).json({ success: true, questions });
   } catch (error: any) {
-    console.error('Gemini Questions Generator Vercel Serverless Error:', error);
-    return res.status(500).json({
-      error: error.message || 'Gagal membuat soal otomatis dengan AI. Pastikan GEMINI_API_KEY sudah dikonfigurasi dengan benar di Vercel.',
-    });
+    console.error("DEBUG_ERROR:", error.message); // Ini akan muncul di log Vercel
+    return res.status(500).json({ error: error.message });
   }
 }
