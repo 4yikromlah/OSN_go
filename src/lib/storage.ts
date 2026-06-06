@@ -13,43 +13,6 @@ const STORAGE_KEYS = {
   TEACHERS: 'cbt_teachers',
 };
 
-// Robust Storage wrapper with safe fallbacks for sandbox environments
-class MemoryStorage {
-  private store: Record<string, string> = {};
-
-  getItem(key: string): string | null {
-    return this.store[key] ?? null;
-  }
-
-  setItem(key: string, value: string): void {
-    this.store[key] = String(value);
-  }
-
-  removeItem(key: string): void {
-    delete this.store[key];
-  }
-
-  clear(): void {
-    this.store = {};
-  }
-}
-
-const getSafeStorage = () => {
-  try {
-    if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
-      const testKey = '__storage_test_key__';
-      window.localStorage.setItem(testKey, 'test');
-      window.localStorage.removeItem(testKey);
-      return window.localStorage;
-    }
-  } catch (e) {
-    console.warn('localStorage is blocked or restricted in this browser environment. Saving to in-memory state.', e);
-  }
-  return new MemoryStorage();
-};
-
-const safeStorage = getSafeStorage();
-
 const DEFAULT_STUDENTS: Student[] = [
   {
     id: 'stud-1',
@@ -232,27 +195,25 @@ const DEFAULT_RESULTS: ResultLog[] = [
   }
 ];
 
-// Initialize defaults if they do not exist
-try {
-  if (safeStorage.getItem(STORAGE_KEYS.EXAMS) === null) {
-    safeStorage.setItem(STORAGE_KEYS.EXAMS, JSON.stringify(DEFAULT_EXAMS));
+// Initialize defaults if they do not exist in localStorage
+if (typeof window !== 'undefined' && window.localStorage) {
+  if (localStorage.getItem(STORAGE_KEYS.EXAMS) === null) {
+    localStorage.setItem(STORAGE_KEYS.EXAMS, JSON.stringify(DEFAULT_EXAMS));
   }
-  if (safeStorage.getItem(STORAGE_KEYS.RESULTS) === null) {
-    safeStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify(DEFAULT_RESULTS));
+  if (localStorage.getItem(STORAGE_KEYS.RESULTS) === null) {
+    localStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify(DEFAULT_RESULTS));
   }
-  if (safeStorage.getItem(STORAGE_KEYS.STUDENTS) === null) {
-    safeStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(DEFAULT_STUDENTS));
+  if (localStorage.getItem(STORAGE_KEYS.STUDENTS) === null) {
+    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(DEFAULT_STUDENTS));
   }
-  if (safeStorage.getItem(STORAGE_KEYS.TEACHERS) === null) {
-    safeStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(DEFAULT_TEACHERS));
+  if (localStorage.getItem(STORAGE_KEYS.TEACHERS) === null) {
+    localStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(DEFAULT_TEACHERS));
   }
-} catch (e) {
-  console.error('Error initializing storage defaults:', e);
 }
 
 export function getExams(): Exam[] {
+  const data = localStorage.getItem(STORAGE_KEYS.EXAMS);
   try {
-    const data = safeStorage.getItem(STORAGE_KEYS.EXAMS);
     return data ? JSON.parse(data) : [];
   } catch (e) {
     return [];
@@ -260,11 +221,7 @@ export function getExams(): Exam[] {
 }
 
 export function saveExams(exams: Exam[]): void {
-  try {
-    safeStorage.setItem(STORAGE_KEYS.EXAMS, JSON.stringify(exams));
-  } catch (e) {
-    console.error('Error writing exams to storage:', e);
-  }
+  localStorage.setItem(STORAGE_KEYS.EXAMS, JSON.stringify(exams));
 }
 
 export function saveExam(exam: Exam): void {
@@ -287,8 +244,8 @@ export function deleteExam(examId: string): void {
 }
 
 export function getResults(): ResultLog[] {
+  const data = localStorage.getItem(STORAGE_KEYS.RESULTS);
   try {
-    const data = safeStorage.getItem(STORAGE_KEYS.RESULTS);
     return data ? JSON.parse(data) : [];
   } catch (e) {
     return [];
@@ -298,26 +255,18 @@ export function getResults(): ResultLog[] {
 export function saveResult(result: ResultLog): void {
   const results = getResults();
   results.unshift(result); // Add latest to the top
-  try {
-    safeStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify(results));
-  } catch (e) {
-    console.error('Error writing results to storage:', e);
-  }
+  localStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify(results));
   insertSupabaseResult(result).catch((err) => console.warn('Supabase saveResult failed:', err));
 }
 
 export function clearAllResults(): void {
-  try {
-    safeStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify([]));
-  } catch (e) {
-    console.error('Error clearing results in storage:', e);
-  }
+  localStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify([]));
   clearSupabaseResults().catch((err) => console.warn('Supabase clearAllResults failed:', err));
 }
 
 export function getStudents(): Student[] {
+  const data = localStorage.getItem(STORAGE_KEYS.STUDENTS);
   try {
-    const data = safeStorage.getItem(STORAGE_KEYS.STUDENTS);
     return data ? JSON.parse(data) : [];
   } catch (e) {
     return [];
@@ -325,11 +274,7 @@ export function getStudents(): Student[] {
 }
 
 export function saveStudents(students: Student[]): void {
-  try {
-    safeStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
-  } catch (e) {
-    console.error('Error writing students to storage:', e);
-  }
+  localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
   // Background bulk sync
   Promise.all(students.map((s) => upsertSupabaseStudent(s)))
     .catch((err) => console.warn('Supabase bulk saveStudents failed:', err));
@@ -354,8 +299,8 @@ export function deleteStudent(studentId: string): void {
 }
 
 export function getTeachers(): Teacher[] {
+  const data = localStorage.getItem(STORAGE_KEYS.TEACHERS);
   try {
-    const data = safeStorage.getItem(STORAGE_KEYS.TEACHERS);
     return data ? JSON.parse(data) : [];
   } catch (e) {
     return [];
@@ -363,11 +308,7 @@ export function getTeachers(): Teacher[] {
 }
 
 export function saveTeachers(teachers: Teacher[]): void {
-  try {
-    safeStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(teachers));
-  } catch (e) {
-    console.error('Error writing teachers to storage:', e);
-  }
+  localStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(teachers));
   // Background bulk sync
   Promise.all(teachers.map((t) => upsertSupabaseTeacher(t)))
     .catch((err) => console.warn('Supabase bulk saveTeachers failed:', err));
@@ -405,21 +346,17 @@ export async function syncStorageWithSupabase(): Promise<{
     getSupabaseTeachers(),
   ]);
 
-  try {
-    if (exams !== null && exams.length > 0) {
-      safeStorage.setItem(STORAGE_KEYS.EXAMS, JSON.stringify(exams));
-    }
-    if (results !== null) {
-      safeStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify(results));
-    }
-    if (students !== null && students.length > 0) {
-      safeStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
-    }
-    if (teachers !== null && teachers.length > 0) {
-      safeStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(teachers));
-    }
-  } catch (e) {
-    console.error('Error syncing Supabase data to local storage:', e);
+  if (exams !== null && exams.length > 0) {
+    localStorage.setItem(STORAGE_KEYS.EXAMS, JSON.stringify(exams));
+  }
+  if (results !== null) {
+    localStorage.setItem(STORAGE_KEYS.RESULTS, JSON.stringify(results));
+  }
+  if (students !== null && students.length > 0) {
+    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+  }
+  if (teachers !== null && teachers.length > 0) {
+    localStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(teachers));
   }
 
   return { exams, results, students, teachers };
