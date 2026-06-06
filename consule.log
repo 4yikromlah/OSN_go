@@ -1,0 +1,3 @@
+// Tambahkan ini tepat sebelum pengecekan
+console.log("Daftar Environment Variables:", Object.keys(process.env));
+console.log("Nilai dari GEMINI_API_KEY:", process.env.GEMINI_API_KEY ? "ADA" : "TIDAK ADA");
