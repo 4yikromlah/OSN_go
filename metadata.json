@@ -1,0 +1,12 @@
+{
+  "name": "CBT_OSN_2026",
+  "description": "A Computer Based Test (CBT) web application featuring student and admin dashboards, multi-format questions, Word file imports, and a neat fusion of Neumorphism, Glassmorphism, and Claymorphism themes.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

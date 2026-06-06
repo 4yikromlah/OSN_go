@@ -1,0 +1,97 @@
+name: Build & Deploy to Google Cloud Run
+
+on:
+  push:
+    branches:
+      - main     # Trigger deploy ketika push atau merge ke branch main
+      - master   # Juga dukung merge ke branch master jika default menggunakan master
+
+env:
+  PROJECT_ID: "${{ secrets.GCP_PROJECT_ID }}"     # ID Proyek Google Cloud Anda
+  GAR_LOCATION: "asia-east1"                       # Region Artifact Registry (misalnya asia-east1)
+  REPOSITORY: "cbt-osn"                            # Nama repositori Docker di Artifact Registry
+  SERVICE: "cbt-osn"                               # Nama layanan Cloud Run Anda
+  REGION: "asia-east1"                             # Region layanan Cloud Run Anda
+
+jobs:
+  validate-and-test:
+    name: Validate, Lint & Build Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Linter (TypeScript Verification)
+        run: npm run lint
+
+      - name: Test Production Build
+        run: npm run build
+
+  deploy-to-cloud-run:
+    name: Build Image & Deploy to Cloud Run
+    needs: validate-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 1. Otentikasi ke Google Cloud Platform
+      # Dapatkan kredensial menggunakan Kunci JSON Service Account atau OIDC Federasi Identitas Beban Kerja
+      - name: Google Auth
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: "${{ secrets.GCP_SA_KEY }}"
+
+      # 2. Setup GCloud SDK
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # 3. Konfigurasi Docker untuk dapat berkomunikasi dengan Artifact Registry
+      - name: Authorize Docker to Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev --quiet
+
+      # 4. Bangun dan Beri Tag pada Docker Image
+      - name: Build and Tag Docker Image
+        run: |
+          IMAGE_TAG="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}"
+          docker build -t $IMAGE_TAG .
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+      # 5. Push Docker Image ke Google Artifact Registry
+      - name: Push Docker Image to GAR
+        run: |
+          docker push ${{ env.IMAGE_TAG }}
+
+      # 6. Deploy Ke Google Cloud Run
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.IMAGE_TAG }}
+          # Meneruskan environment variables rahasia ke Cloud Run secara aman di runtime
+          env_vars: |
+            NODE_ENV=production
+            VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+            VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+
+      - name: Show Deployment URL
+        run: |
+          echo "Layanan berhasil dideploy! Akses aplikasi Anda di:"
+          gcloud run services describe ${{ env.SERVICE }} --region ${{ env.REGION }} --format 'value(status.url)'
