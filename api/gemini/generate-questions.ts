@@ -37,6 +37,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     // Cek keberadaan API Key secara eksplisit
+    console.log("Daftar kunci env yang tersedia:", Object.keys(process.env));
     if (!process.env.GEMINI_API_KEY) {
        throw new Error("GEMINI_API_KEY tidak terbaca oleh sistem");
     }
