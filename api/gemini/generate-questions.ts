@@ -64,7 +64,7 @@ Setiap soal harus berisi opsi A, B, C, D, dan E, satu kunci jawaban yang benar, 
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-1.5-flash',
       contents: userPromptText,
       config: {
         systemInstruction,
